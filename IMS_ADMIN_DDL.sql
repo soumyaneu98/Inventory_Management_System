@@ -49,7 +49,7 @@ END;
 
 CREATE TABLE categories (
     ctgryid INTEGER NOT NULL,
-    name    VARCHAR2(20) NOT NULL,
+    name    VARCHAR2(20) NOT NULL UNIQUE,
     CONSTRAINT categories_pk PRIMARY KEY (ctgryid)
 );
 
@@ -76,7 +76,7 @@ CREATE TABLE discounts (
 
 CREATE TABLE orders (
     orderid    INTEGER NOT NULL,
-    orderdate  DATE,
+    orderdate  DATE DEFAULT SYSDATE NOT NULL,
     billamt    NUMBER(8, 2),
     shipstatus VARCHAR2(10),
     dlvrydate  DATE,
@@ -112,7 +112,7 @@ CREATE TABLE products (
     supid       INTEGER NOT NULL,
     ctgryid     INTEGER NOT NULL,
     reorderqty  INTEGER,
-    discid      INTEGER NOT NULL,
+    discid      INTEGER,
     CONSTRAINT products_pk PRIMARY KEY (prodid),
     CONSTRAINT products_categories_fk FOREIGN KEY (ctgryid) REFERENCES categories(ctgryid),
     CONSTRAINT products_discounts_fk FOREIGN KEY (discid) REFERENCES discounts(discid),
@@ -132,7 +132,7 @@ CREATE TABLE productorder (
 
 CREATE TABLE productsupply (
     productsupply_id INTEGER NOT NULL,
-    orderdate        DATE,
+    orderdate        DATE DEFAULT SYSDATE NOT NULL,
     prodid           INTEGER NOT NULL,
     status           CHAR(1),
     refil_date       DATE,
@@ -150,3 +150,58 @@ CREATE SEQUENCE products_seq;
 CREATE SEQUENCE productorder_seq;
 CREATE SEQUENCE productsupply_seq;
 
+---  Customer's Product order View
+ 
+CREATE OR REPLACE VIEW customer_order_view AS
+SELECT
+    o.orderid AS Orderld,
+    o.orderdate AS OrderDate,
+    (po.qty * (p.price - (p.price * NVL(d.value, 0) / 100))) AS BillAmt,
+    o.shipstatus AS ShipStatus,
+    o.dlvrydate AS DIvryDate,
+    po.qty AS Quantity,
+    p.name AS ProductName,
+    p.description AS ProductDescription,
+    p.price AS ProductPrice,
+    p.warranty AS ProductWarranty,
+    s.name AS SupplierName,
+    c.name AS CategoryName,
+    NVL(d.name, 'No Discount') AS DiscountName
+FROM
+    orders o
+JOIN
+    productorder po ON o.orderid = po.orderid
+JOIN
+    products p ON po.prodid = p.prodid
+JOIN
+    suppliers s ON p.supid = s.supid
+JOIN
+    categories c ON p.ctgryid = c.ctgryid
+LEFT JOIN
+    discounts d ON p.discid = d.discid;
+ 
+select * from customer_order_view; 
+
+-- logistic Admin Order Status
+CREATE or replace VIEW logistic_admin_order_status AS
+SELECT
+    o.orderid,
+    o.orderdate,  
+    o.shipstatus,
+    o.dlvrydate,
+    c.name AS customer_name,
+    c.email AS customer_email,
+    c.contactnum AS customer_contact,
+    c.city AS customer_city,
+    c.country AS customer_country,
+     p.name AS ProductName
+FROM
+    orders o
+    JOIN 
+    customers c ON o.custid = c.custid
+    JOIN
+    productorder po ON o.orderid = po.orderid
+    JOIN
+    products p ON po.prodid = p.prodid;
+ 
+select * from logistic_admin_order_status;
