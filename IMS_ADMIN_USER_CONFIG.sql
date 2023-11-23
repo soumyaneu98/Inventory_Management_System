@@ -81,6 +81,28 @@ GRANT SELECT ON suppliers_seq TO MANAGER_ROLE;
 GRANT SELECT ON productsupply_seq TO MANAGER_ROLE;
 GRANT SELECT ON customers_seq TO MANAGER_ROLE;
 
+DECLARE
+    v_sid NUMBER;      
+    v_serial NUMBER;   
+    v_user VARCHAR2(100);
+BEGIN
+    
+    FOR I IN (
+    SELECT SID, SERIAL#
+    FROM V$SESSION
+    WHERE USERNAME IN ('SUPPLIER', 'CUSTOMER','LOGISTIC_ADMIN','IMS_MANAGER')
+    )
+    LOOP
+     DBMS_OUTPUT.PUT_LINE('ALTER SYSTEM KILL SESSION ' || '''' || I.SID  || ',' || I.SERIAL# || '''');
+     EXECUTE IMMEDIATE 'ALTER SYSTEM KILL SESSION ' || '''' || I.SID  || ',' || I.SERIAL# || '''';
+     DBMS_LOCK.SLEEP(1);
+    END LOOP;
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('CONTACT ADMIN WITH ERROR CODE : ' || SQLCODE);
+END;
+/
+                          
 -- Delete the users if already present --
 DECLARE
     V_USER VARCHAR(100);
