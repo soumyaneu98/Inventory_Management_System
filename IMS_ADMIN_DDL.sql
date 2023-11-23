@@ -76,7 +76,7 @@ CREATE TABLE discounts (
 
 CREATE TABLE orders (
     orderid    INTEGER NOT NULL,
-    orderdate  DATE,
+    orderdate  DATE DEFAULT SYSDATE NOT NULL,
     billamt    NUMBER(8, 2),
     shipstatus VARCHAR2(10),
     dlvrydate  DATE,
@@ -112,7 +112,7 @@ CREATE TABLE products (
     supid       INTEGER NOT NULL,
     ctgryid     INTEGER NOT NULL,
     reorderqty  INTEGER,
-    discid      INTEGER NOT NULL,
+    discid      INTEGER,
     CONSTRAINT products_pk PRIMARY KEY (prodid),
     CONSTRAINT products_categories_fk FOREIGN KEY (ctgryid) REFERENCES categories(ctgryid),
     CONSTRAINT products_discounts_fk FOREIGN KEY (discid) REFERENCES discounts(discid),
@@ -132,7 +132,7 @@ CREATE TABLE productorder (
 
 CREATE TABLE productsupply (
     productsupply_id INTEGER NOT NULL,
-    orderdate        DATE,
+    orderdate        DATE DEFAULT SYSDATE NOT NULL,
     prodid           INTEGER NOT NULL,
     status           CHAR(1),
     refil_date       DATE,
