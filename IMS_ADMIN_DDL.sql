@@ -150,7 +150,7 @@ CREATE SEQUENCE products_seq;
 CREATE SEQUENCE productorder_seq;
 CREATE SEQUENCE productsupply_seq;
 
----  Customer's Product order View
+---  Customers Product order View
  
 CREATE OR REPLACE VIEW customer_order_view AS
 SELECT
@@ -205,3 +205,69 @@ FROM
     products p ON po.prodid = p.prodid;
  
 select * from logistic_admin_order_status;
+
+-- stock report
+
+CREATE or replace VIEW stock_report AS
+SELECT
+    c.name AS category_name,
+    p.name AS product_name,
+    p.qtyinstock,
+    p.reorderqty,
+    CASE WHEN p.qtyinstock <= p.reorderqty THEN 'Restock Needed' ELSE 'In Stock' END AS stock_status
+FROM
+    products p
+JOIN
+    categories c ON p.ctgryid = c.ctgryid;
+ select * from stock_report;
+
+--Sales Report
+
+
+CREATE  or replace VIEW sales_report AS
+SELECT
+    o.orderid,
+    o.orderdate,
+    c.name AS customer_name,
+    p.name AS product_name,
+    po.qty,
+    (po.qty * (p.price - (p.price * NVL(d.value, 0) / 100))) AS BillAmt
+FROM
+    orders o
+JOIN
+    customers c ON o.custid = c.custid
+JOIN
+    productorder po ON o.orderid = po.orderid
+JOIN
+    products p ON po.prodid = p.prodid
+LEFT JOIN
+    discounts d ON p.discid = d.discid;
+
+
+
+SELECT * FROM sales_report;
+SELECT * FROM stock_report;
+
+
+-- Customer Product View
+
+CREATE or replace VIEW customer_product_view AS
+SELECT
+    p.prodid,
+    p.name AS product_name,
+    p.description AS product_description,
+    p.price,
+    p.warranty,
+    s.name AS supplier_name,
+    c.name as category_name,
+    d.name as disc_name
+FROM
+    products p
+JOIN
+    suppliers s ON p.supid = s.supid
+JOIN
+    categories c ON p.ctgryid = c.ctgryid
+Left JOIN
+    discounts d ON p.discid = d.discid;
+    
+select * from customer_product_view;
