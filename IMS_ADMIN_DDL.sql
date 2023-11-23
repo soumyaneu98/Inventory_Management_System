@@ -206,11 +206,7 @@ FROM
  
 select * from logistic_admin_order_status;
 
-
-
-
-
---x
+-- stock report
 
 CREATE or replace VIEW stock_report AS
 SELECT
@@ -275,4 +271,3 @@ Left JOIN
     discounts d ON p.discid = d.discid;
     
 select * from customer_product_view;
-
