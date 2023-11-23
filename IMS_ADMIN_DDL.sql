@@ -49,7 +49,7 @@ END;
 
 CREATE TABLE categories (
     ctgryid INTEGER NOT NULL,
-    name    VARCHAR2(20) NOT NULL,
+    name    VARCHAR2(20) NOT NULL UNIQUE,
     CONSTRAINT categories_pk PRIMARY KEY (ctgryid)
 );
 
