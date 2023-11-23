@@ -1,4 +1,5 @@
 SET SERVEROUTPUT ON;
+
 BEGIN 
 FOR I IN (
 WITH DESIRED_OBJECTS AS (
@@ -33,7 +34,7 @@ WITH DESIRED_OBJECTS AS (
     SELECT 'PRODUCTORDER_SEQ'    FROM DUAL
     UNION ALL
     SELECT 'PRODUCTSUPPLY_SEQ'   FROM DUAL  
- )
+    )
  SELECT DT.OBJECT_NAME, UO.OBJECT_TYPE FROM DESIRED_OBJECTS DT JOIN USER_OBJECTS UO ON DT.OBJECT_NAME=UO.OBJECT_NAME 
  )
  LOOP
@@ -48,7 +49,7 @@ END;
 
 CREATE TABLE categories (
     ctgryid INTEGER NOT NULL,
-    name    VARCHAR2(20) NOT NULL,
+    name    VARCHAR2(20) NOT NULL UNIQUE,
     CONSTRAINT categories_pk PRIMARY KEY (ctgryid)
 );
 
@@ -64,7 +65,7 @@ CREATE TABLE customers (
     zip_code    VARCHAR2(6) NOT NULL,
     CONSTRAINT customers_pk PRIMARY KEY (custid),
     CONSTRAINT customers_email_contactnum_un UNIQUE (email, contactnum)
-   );
+);
 
 CREATE TABLE discounts (
     discid INTEGER NOT NULL,
@@ -129,7 +130,6 @@ CREATE TABLE productorder (
     CONSTRAINT productorder_products_fk FOREIGN KEY (prodid) REFERENCES products(prodid)
 );
 
-
 CREATE TABLE productsupply (
     productsupply_id INTEGER NOT NULL,
     orderdate        DATE DEFAULT SYSDATE NOT NULL,
@@ -149,10 +149,4 @@ CREATE SEQUENCE suppliers_seq;
 CREATE SEQUENCE products_seq;
 CREATE SEQUENCE productorder_seq;
 CREATE SEQUENCE productsupply_seq;
-
-select * from user_tables;
-
-create table temp_table(i int);
-
-
 

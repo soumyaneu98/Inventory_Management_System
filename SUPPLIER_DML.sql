@@ -1,7 +1,6 @@
 ALTER SESSION SET CURRENT_SCHEMA = IMS_ADMIN;
 DELETE FROM SUPPLIERS;
 
-
 INSERT INTO suppliers (supid, name, email, contactnum, addr_street, website, itin, addr_unit, city, country, zip_code) VALUES
 (1, 'Supplier1', 'supp1@example.com', 1234567890, '789 Elm St', 'www.supplier1.com', 'ITIN123', 101, 'City1', 'Country1', '54321');
 
@@ -18,4 +17,5 @@ INSERT INTO suppliers (supid, name, email, contactnum, addr_street, website, iti
 (5, 'Supplier5', 'supp5@example.com', 6665554444, '789 Cedar St', 'www.supplier5.com', 'ITIN654', 105, 'City5', 'Country5', '55667');
 
 COMMIT;
+
 SELECT * FROM SUPPLIERS;
