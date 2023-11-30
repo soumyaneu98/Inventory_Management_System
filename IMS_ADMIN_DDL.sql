@@ -848,13 +848,6 @@ BEGIN
     -- Insert the data into the productorder table
     INSERT INTO productorder (prodid, orderid, qty, final_price, prodorder_id)
     VALUES (v_prodid, p_orderid, p_qty, v_final_price, v_prodorder_id);
- 
-    -- Use the productorder_seq sequence to generate the next value for prodorder_id
-    SELECT productorder_seq.nextval INTO v_prodorder_id FROM dual;
-
-    -- Insert the data into the productorder table
-    INSERT INTO productorder (prodid, orderid, qty, final_price, prodorder_id)
-    VALUES (v_prodid, p_orderid, p_qty, v_final_price, v_prodorder_id);
 
     -- Update the available quantity in the products table
     UPDATE products
