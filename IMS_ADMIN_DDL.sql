@@ -967,3 +967,4 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Error updating product quantity and final price: ' || SQLERRM);
 END update_product_quantity;
 /
+
