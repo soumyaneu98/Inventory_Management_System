@@ -735,9 +735,236 @@ WHEN NO_DATA_FOUND THEN
 END;
 /
 
+-- Insert Order
+
+CREATE OR REPLACE PROCEDURE insert_order (
+    p_shipstatus IN VARCHAR2,
+    p_custid     IN INTEGER,
+    p_order_date IN DATE DEFAULT NULL
+)
+AS
+    v_orderid INTEGER;
+    v_default_order_date DATE;
+BEGIN
+    -- Generate next orderid from sequence
+    SELECT orders_seq.NEXTVAL INTO v_orderid FROM dual;
+
+    -- Set default order date to current date if not provided
+    IF p_order_date IS NULL THEN
+        v_default_order_date := SYSDATE;
+    ELSE
+        v_default_order_date := p_order_date;
+    END IF;
+
+    -- Set default values and insert into orders table
+    INSERT INTO orders (
+        orderid,
+        order_date,
+        billamt,
+        shipstatus,
+        dlvry_date,
+        custid
+    ) VALUES (
+        v_orderid,
+        v_default_order_date,
+        0, -- Default billamt
+        COALESCE(p_shipstatus, 'Processing'), -- Default shipstatus is 'Processing'
+        v_default_order_date + 3, -- Default delivery date
+        p_custid
+    );
+
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Order inserted successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error inserting order: ' || SQLERRM);
+END insert_order;
+/
+
+-- Update Order Total
+
+CREATE OR REPLACE PROCEDURE update_order_totals AS
+BEGIN
+    FOR order_rec IN (SELECT DISTINCT orderid FROM orders) -- Iterate over distinct order IDs in the orders table
+    LOOP
+        -- Calculate total bill amount for the specific order
+        UPDATE orders o
+        SET billamt = (SELECT NVL(SUM(po.final_price * po.qty), 0)
+                       FROM productorder po
+                       WHERE po.orderid = order_rec.orderid)
+        WHERE o.orderid = order_rec.orderid;
+    END LOOP;
+
+    COMMIT; -- Commit outside the loop
+
+    DBMS_OUTPUT.PUT_LINE('Order totals updated successfully.');
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error updating order totals: ' || SQLERRM);
+END update_order_totals;
+/
 
 
+--Insert Product Order
 
 
+CREATE OR REPLACE PROCEDURE InsertProductOrder(
+    p_product_name IN products.name%TYPE,
+    p_orderid      IN productorder.orderid%TYPE,
+    p_qty          IN productorder.qty%TYPE
+) AS
+    v_original_price products.price%TYPE;
+    v_discount      discounts.value%TYPE;
+    v_final_price   NUMBER(7, 2);
+    v_prodorder_id  productorder.prodorder_id%TYPE;
+    v_prodid        products.prodid%TYPE;
+    v_available_qty products.qtyinstock%TYPE;
+    v_existing_order_qty productorder.qty%TYPE;
+    temp discounts.discid%TYPE;
+BEGIN
+    -- Get the product ID based on the product name
+    SELECT prodid INTO v_prodid FROM products WHERE name = p_product_name;
 
+    -- Get the original price of the product
+    SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
+
+    -- Get the discount value for the product
+    SELECT NVL((SELECT value FROM discounts WHERE discid = (SELECT discid FROM products WHERE prodid = v_prodid)), 0) INTO v_discount FROM dual;
+
+   
+   -- Calculate the final discounted price multiplied by quantity
+    v_final_price := (v_original_price - (v_original_price * v_discount / 100));
+
+    -- Check if the product already exists in the productorder table for the specified order
+    SELECT qty INTO v_existing_order_qty
+    FROM productorder
+    WHERE prodid = v_prodid AND orderid = p_orderid;
+
+    IF v_existing_order_qty IS NOT NULL THEN
+        -- Product already exists in the order, raise an error
+        RAISE_APPLICATION_ERROR(-20003, 'Product already exists in the order. Please update the product quantity.');
+    END IF;
+    
+    -- Check if the available quantity is sufficient
+    SELECT qtyinstock INTO v_available_qty
+    FROM products
+    WHERE prodid = v_prodid;
+
+    IF v_available_qty < p_qty THEN
+        -- Quantity not available
+        RAISE_APPLICATION_ERROR(-20002, 'Insufficient quantity available for the product.');
+    END IF;
+
+    -- Use the productorder_seq sequence to generate the next value for prodorder_id
+    SELECT productorder_seq.nextval INTO v_prodorder_id FROM dual;
+
+    -- Insert the data into the productorder table
+    INSERT INTO productorder (prodid, orderid, qty, final_price, prodorder_id)
+    VALUES (v_prodid, p_orderid, p_qty, v_final_price, v_prodorder_id);
+
+    -- Update the available quantity in the products table
+    UPDATE products
+    SET qtyinstock = qtyinstock - p_qty
+    WHERE prodid = v_prodid;
+
+    COMMIT;
+update_order_totals;
+    DBMS_OUTPUT.PUT_LINE('Data inserted successfully into productorder table. Prodorder_id: ' || v_prodorder_id);
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Product not found.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLCODE || ' - ' || SQLERRM);
+        ROLLBACK;
+END InsertProductOrder;
+/
+
+
+-- Update Product Quantity
+
+CREATE OR REPLACE PROCEDURE update_product_quantity (
+    p_orderid INTEGER,
+    p_product_name VARCHAR2,
+    p_new_qty INTEGER
+)
+AS
+    v_prodid INTEGER;
+    v_original_price NUMBER;
+    v_discount NUMBER := 0; -- Default discount to 0 if not specified
+    v_final_price NUMBER;
+    v_product_count INTEGER;
+    v_current_qty INTEGER;
+BEGIN
+    -- Get the product ID based on the product name
+    SELECT prodid INTO v_prodid FROM products WHERE name = p_product_name;
+
+    -- Get the original price of the product
+    SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
+
+    -- Get the discount value for the product
+    SELECT NVL((SELECT value FROM discounts WHERE discid = products.discid), 0) INTO v_discount FROM products WHERE prodid = v_prodid;
+
+    -- Calculate the final discounted price
+    v_final_price := v_original_price - (v_original_price * v_discount / 100);
+
+    -- Check if the product is associated with the given order ID
+    SELECT COUNT(*)
+    INTO v_product_count
+    FROM productorder
+    WHERE orderid = p_orderid AND prodid = v_prodid;
+
+    IF v_product_count = 0 THEN
+        -- Product not associated with the order ID
+        RAISE_APPLICATION_ERROR(-20001, 'Product not associated with the given order ID.');
+    END IF;
+
+    -- Get the current quantity in stock
+    SELECT NVL(qtyinstock, 0) + NVL(qty, 0) INTO v_current_qty
+    FROM products pr
+    LEFT JOIN productorder po ON pr.prodid = po.prodid
+    WHERE pr.prodid = v_prodid
+    AND po.orderid = p_orderid;
+
+    IF v_current_qty < p_new_qty THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Requested quantity exceeds the available quantity in stock.');
+    END IF;
+
+    -- Savepoint before making changes to the database
+    SAVEPOINT before_update;
+
+    -- Update the quantity in the products table
+    UPDATE products
+    SET qtyinstock = qtyinstock + ((NVL((SELECT qty FROM productorder WHERE orderid = p_orderid AND prodid = v_prodid), 0)) - p_new_qty)
+    WHERE prodid = v_prodid;
+
+    -- Update the quantity and final_price in the productorder table
+    UPDATE productorder
+    SET qty = p_new_qty,
+        final_price = p_new_qty * v_final_price
+    WHERE orderid = p_orderid
+    AND prodid = v_prodid;
+
+    -- Commit the transaction
+    COMMIT;
+
+    -- Update order totals
+    update_order_totals;
+
+    DBMS_OUTPUT.PUT_LINE('Product quantity and final price updated successfully.');
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        -- Rollback to the savepoint if a product is not found
+        SAVEPOINT before_update;
+        ROLLBACK TO before_update;
+        DBMS_OUTPUT.PUT_LINE('Product not found associated with this order! Please add this product to the order.');
+    WHEN OTHERS THEN
+        -- Rollback in case of any other exception
+        SAVEPOINT before_update;
+        ROLLBACK TO before_update;
+        DBMS_OUTPUT.PUT_LINE('Error updating product quantity and final price: ' || SQLERRM);
+END update_product_quantity;
+/
 
