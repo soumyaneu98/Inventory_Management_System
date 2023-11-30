@@ -1,5 +1,5 @@
 SET SERVEROUTPUT ON;
-
+ 
 BEGIN 
 FOR I IN (
 WITH DESIRED_OBJECTS AS (
@@ -35,24 +35,24 @@ WITH DESIRED_OBJECTS AS (
     UNION ALL
     SELECT 'PRODUCTSUPPLY_SEQ'   FROM DUAL  
     )
- SELECT DT.OBJECT_NAME, UO.OBJECT_TYPE FROM DESIRED_OBJECTS DT JOIN USER_OBJECTS UO ON DT.OBJECT_NAME=UO.OBJECT_NAME 
- )
- LOOP
- DBMS_OUTPUT.PUT_LINE('DROP ' || I.OBJECT_TYPE || ' ' || I.OBJECT_NAME);
- EXECUTE IMMEDIATE 'DROP ' || I.OBJECT_TYPE || ' ' || I.OBJECT_NAME ;
- END LOOP;
+    SELECT DT.OBJECT_NAME, UO.OBJECT_TYPE FROM DESIRED_OBJECTS DT JOIN USER_OBJECTS UO ON DT.OBJECT_NAME=UO.OBJECT_NAME 
+)
+LOOP
+    DBMS_OUTPUT.PUT_LINE('DROP ' || I.OBJECT_TYPE || ' ' || I.OBJECT_NAME);
+    EXECUTE IMMEDIATE 'DROP ' || I.OBJECT_TYPE || ' ' || I.OBJECT_NAME ;
+END LOOP;
 EXCEPTION
- WHEN OTHERS THEN
-    DBMS_OUTPUT.PUT_LINE('SOMETHING WENT WRONG');
-END;
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('SOMETHING WENT WRONG');
+    END;
 /
-
+ 
 CREATE TABLE categories (
     ctgryid INTEGER NOT NULL,
     name    VARCHAR2(20) NOT NULL UNIQUE,
     CONSTRAINT categories_pk PRIMARY KEY (ctgryid)
 );
-
+ 
 CREATE TABLE customers (
     custid      INTEGER,
     name        VARCHAR2(20) NOT NULL,
@@ -67,14 +67,14 @@ CREATE TABLE customers (
     CONSTRAINT customers_email_un UNIQUE (email),
     CONSTRAINT customers_contactnum_un UNIQUE (contactnum)
 );
-
+ 
 CREATE TABLE discounts (
     discid INTEGER NOT NULL,
     value  INTEGER NOT NULL,
     name   VARCHAR2(20) NOT NULL,
     CONSTRAINT discounts_pk PRIMARY KEY (discid)
 );
-
+ 
 CREATE TABLE orders (
     orderid    INTEGER NOT NULL,
     order_date  DATE DEFAULT SYSDATE NOT NULL,
@@ -87,7 +87,7 @@ CREATE TABLE orders (
     CONSTRAINT DLVRY_ORDER_DT CHECK (dlvry_date >= order_date),
     CONSTRAINT SHIP_STATUS_VAL CHECK (shipstatus IN ('PROCESSING', 'IN-TRANSIT', 'DELIVERED'))
 );
-
+ 
 CREATE TABLE suppliers (
     supid       INTEGER NOT NULL,
     name        VARCHAR2(20) NOT NULL,
@@ -104,7 +104,7 @@ CREATE TABLE suppliers (
     CONSTRAINT suppliers_email_un UNIQUE (email),
     CONSTRAINT suppliers_contactnum_un UNIQUE (contactnum)
 );
-
+ 
 CREATE TABLE products (
     prodid      INTEGER NOT NULL,
     name        VARCHAR2(40) NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE products (
     CONSTRAINT AVAIL_STATUS CHECK (AVAILSTATUS='Y' OR AVAILSTATUS='N' ),
     CONSTRAINT PRICE_GTE_1 CHECK ( PRICE >=1 )
 );
-
+ 
 CREATE TABLE productorder (
     prodid       INTEGER NOT NULL,
     orderid      INTEGER NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE productorder (
     CONSTRAINT productorder_products_fk FOREIGN KEY (prodid) REFERENCES products(prodid),
     CONSTRAINT QTY_IN_STOCK_GT_0 CHECK ( qty > 0)
 );
-
+ 
 CREATE TABLE productsupply (
     productsupply_id INTEGER NOT NULL,
     order_date        DATE DEFAULT SYSDATE NOT NULL,
@@ -210,8 +210,7 @@ FROM
     productorder po ON o.orderid = po.orderid
     JOIN
     products p ON po.prodid = p.prodid;
-
-
+ 
 -- stock report
 
 CREATE or replace VIEW stock_report AS
@@ -227,7 +226,6 @@ JOIN
     categories c ON p.ctgryid = c.ctgryid;
 
 --Sales Report
-
 
 CREATE  OR REPLACE VIEW sales_report AS
 SELECT
@@ -248,10 +246,8 @@ JOIN
 LEFT JOIN
     discounts d ON p.discid = d.discid;
 
-
-
 -- Customer Product View
-
+ 
 CREATE OR REPLACE VIEW customer_product_view AS
 SELECT
     p.prodid,
@@ -271,7 +267,6 @@ JOIN
 Left JOIN
     discounts d ON p.discid = d.discid;
     
-
 --return product id if exist, else returns -1
 CREATE OR REPLACE FUNCTION GET_PRODUCT_ID(PI_PNAME VARCHAR) RETURN INTEGER AS 
 V_ID INTEGER:=-1;
@@ -419,7 +414,6 @@ WHEN CUSTOM_EXCEPTION THEN
 END;
 /
 
-
 -- insert product procedure
 CREATE OR REPLACE PROCEDURE ADD_PRODUCT(PI_PNAME VARCHAR, PI_DESC VARCHAR, 
                                         PI_PRICE NUMBER, PI_QTY_IN_STOCK INTEGER, PI_WARRANTY INTEGER, 
@@ -504,7 +498,6 @@ WHEN OTHERS THEN
     DBMS_OUTPUT.PUT_LINE('SOMETHIGN WENT WRONG ' || SQLERRM);
 END;
 /
-
 
 CREATE OR REPLACE PROCEDURE UPDATE_PRODUCT_INFO(PI_NAME VARCHAR, PI_DESC VARCHAR, PI_PRICE NUMBER) AS
 V_PID INTEGER;
@@ -695,7 +688,6 @@ WHEN CUSTOM_EXCEPTION THEN
 END;
 /
 
-
 CREATE OR REPLACE PROCEDURE TOGGLE_SHIP_STATUS_UP(PI_OID INTEGER) AS
 V_OID ORDERS.ORDERID%TYPE;
 BEGIN
@@ -714,7 +706,6 @@ WHEN NO_DATA_FOUND THEN
     DBMS_OUTPUT.PUT_LINE('ORDER ID NOT FOUND');
 END;
 /
-
 
 CREATE OR REPLACE PROCEDURE TOGGLE_SHIP_STATUS_DOWN(PI_OID INTEGER) AS
 V_OID ORDERS.ORDERID%TYPE;
@@ -736,7 +727,6 @@ END;
 /
 
 -- Insert Order
-
 CREATE OR REPLACE PROCEDURE insert_order (
     p_shipstatus IN VARCHAR2,
     p_custid     IN INTEGER,
@@ -783,7 +773,6 @@ END insert_order;
 /
 
 -- Update Order Total
-
 CREATE OR REPLACE PROCEDURE update_order_totals AS
 BEGIN
     FOR order_rec IN (SELECT DISTINCT orderid FROM orders) -- Iterate over distinct order IDs in the orders table
@@ -797,7 +786,7 @@ BEGIN
     END LOOP;
 
     COMMIT; -- Commit outside the loop
-
+ 
     DBMS_OUTPUT.PUT_LINE('Order totals updated successfully.');
 EXCEPTION
     WHEN OTHERS THEN
@@ -806,10 +795,7 @@ EXCEPTION
 END update_order_totals;
 /
 
-
 --Insert Product Order
-
-
 CREATE OR REPLACE PROCEDURE InsertProductOrder(
     p_product_name IN products.name%TYPE,
     p_orderid      IN productorder.orderid%TYPE,
@@ -826,6 +812,15 @@ CREATE OR REPLACE PROCEDURE InsertProductOrder(
 BEGIN
     -- Get the product ID based on the product name
     SELECT prodid INTO v_prodid FROM products WHERE name = p_product_name;
+ 
+    -- Get the original price of the product
+    SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
+ 
+    -- Get the discount value for the product
+    SELECT NVL((SELECT value FROM discounts WHERE discid = (SELECT discid FROM products WHERE prodid = v_prodid)), 0) INTO v_discount FROM dual;
+   
+   -- Calculate the final discounted price multiplied by quantity
+    v_final_price := (v_original_price - (v_original_price * v_discount / 100));
 
     -- Get the original price of the product
     SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
@@ -833,7 +828,6 @@ BEGIN
     -- Get the discount value for the product
     SELECT NVL((SELECT value FROM discounts WHERE discid = (SELECT discid FROM products WHERE prodid = v_prodid)), 0) INTO v_discount FROM dual;
 
-   
    -- Calculate the final discounted price multiplied by quantity
     v_final_price := (v_original_price - (v_original_price * v_discount / 100));
 
@@ -859,6 +853,13 @@ BEGIN
 
     -- Use the productorder_seq sequence to generate the next value for prodorder_id
     SELECT productorder_seq.nextval INTO v_prodorder_id FROM dual;
+ 
+    -- Insert the data into the productorder table
+    INSERT INTO productorder (prodid, orderid, qty, final_price, prodorder_id)
+    VALUES (v_prodid, p_orderid, p_qty, v_final_price, v_prodorder_id);
+ 
+    -- Use the productorder_seq sequence to generate the next value for prodorder_id
+    SELECT productorder_seq.nextval INTO v_prodorder_id FROM dual;
 
     -- Insert the data into the productorder table
     INSERT INTO productorder (prodid, orderid, qty, final_price, prodorder_id)
@@ -870,7 +871,7 @@ BEGIN
     WHERE prodid = v_prodid;
 
     COMMIT;
-update_order_totals;
+    update_order_totals;
     DBMS_OUTPUT.PUT_LINE('Data inserted successfully into productorder table. Prodorder_id: ' || v_prodorder_id);
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
@@ -881,9 +882,7 @@ EXCEPTION
 END InsertProductOrder;
 /
 
-
 -- Update Product Quantity
-
 CREATE OR REPLACE PROCEDURE update_product_quantity (
     p_orderid INTEGER,
     p_product_name VARCHAR2,
@@ -900,6 +899,15 @@ BEGIN
     -- Get the product ID based on the product name
     SELECT prodid INTO v_prodid FROM products WHERE name = p_product_name;
 
+    -- Get the original price of the product
+    SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
+ 
+    -- Get the discount value for the product
+    SELECT NVL((SELECT value FROM discounts WHERE discid = products.discid), 0) INTO v_discount FROM products WHERE prodid = v_prodid;
+ 
+    -- Calculate the final discounted price
+    v_final_price := v_original_price - (v_original_price * v_discount / 100);
+ 
     -- Get the original price of the product
     SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
 
@@ -926,7 +934,14 @@ BEGIN
     LEFT JOIN productorder po ON pr.prodid = po.prodid
     WHERE pr.prodid = v_prodid
     AND po.orderid = p_orderid;
-
+ 
+    IF v_current_qty < p_new_qty THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Requested quantity exceeds the available quantity in stock.');
+    END IF;
+ 
+    -- Savepoint before making changes to the database
+    SAVEPOINT before_update;
+ 
     IF v_current_qty < p_new_qty THEN
         RAISE_APPLICATION_ERROR(-20002, 'Requested quantity exceeds the available quantity in stock.');
     END IF;
@@ -946,6 +961,14 @@ BEGIN
     WHERE orderid = p_orderid
     AND prodid = v_prodid;
 
+    -- Commit the transaction
+    COMMIT;
+ 
+    -- Update order totals
+    update_order_totals;
+ 
+    DBMS_OUTPUT.PUT_LINE('Product quantity and final price updated successfully.');
+ 
     -- Commit the transaction
     COMMIT;
 
@@ -968,3 +991,363 @@ EXCEPTION
 END update_product_quantity;
 /
 
+-- Procedure for Suppliers --
+ 
+SET SERVEROUTPUT ON;
+CREATE OR REPLACE PROCEDURE ADD_SUPPLIERS( 
+    si_name SUPPLIERS.NAME%TYPE,
+    si_email SUPPLIERS.EMAIL%TYPE,
+    si_num SUPPLIERS.CONTACTNUM%TYPE,
+    si_street SUPPLIERS.ADDR_STREET%TYPE,
+    si_website SUPPLIERS.WEBSITE%TYPE,
+    si_itin SUPPLIERS.ITIN%TYPE,
+    si_unit SUPPLIERS.ADDR_UNIT%TYPE,
+    si_city SUPPLIERS.CITY%TYPE,
+    si_country SUPPLIERS.COUNTRY%TYPE,
+    si_zipcode SUPPLIERS.ZIP_CODE%TYPE
+)
+AS
+    sup_name VARCHAR2(50);
+    sup_country VARCHAR2(50);
+    supid_exist INTEGER;
+    null_parameter_name VARCHAR2(20);
+    length_exceeding_column VARCHAR2(20);
+    max_length NUMBER;
+    E_SUP_EXIST EXCEPTION;
+    E_NULLEMPTY_PARAM EXCEPTION;
+    E_LENGTHY_PARAM EXCEPTION;
+    E_INVALID_CONTACT EXCEPTION;
+    E_INVALID_ITIN EXCEPTION;
+    E_INVALID_UNIT EXCEPTION;
+    E_INVALID_EMAIL EXCEPTION;
+    E_LENGTHY_COUNTRY EXCEPTION;
+    E_NAME_HAS_SPECIAL_CHARACTERS EXCEPTION;
+    E_CITY_HAS_SPECIAL_CHARACTERS EXCEPTION;
+    E_COUNTRY_HAS_SPECIAL_CHARACTERS EXCEPTION;
+    E_INVALID_ZIPCODE EXCEPTION;
+    
+BEGIN
+    max_length := 0;
+    
+    -- Storing supplier name in camel case --
+    sup_name := INITCAP(TRIM(si_name));
+    
+    -- Setting default or input value for country --
+    sup_country := COALESCE(TRIM(si_country), 'USA');
+    
+    -- Check if any parameter is null or empty except website --
+    null_parameter_name :=
+      CASE
+        WHEN TRIM(si_name) IS NULL THEN 'Name'
+        WHEN TRIM(si_email) IS NULL THEN 'Email ID'
+        WHEN si_num IS NULL THEN 'Contact Number'
+        WHEN TRIM(si_street) IS NULL THEN 'Street Address'
+        WHEN si_itin IS NULL THEN 'ITIN'
+        WHEN si_unit IS NULL THEN 'Unit Number'
+        WHEN TRIM(si_city) IS NULL THEN 'City'
+        WHEN TRIM(si_zipcode) IS NULL THEN 'Zip code'
+        ELSE NULL
+      END;
+ 
+    -- If any parameter is null or empty, raise exception --
+    IF null_parameter_name IS NOT NULL THEN
+        RAISE E_NULLEMPTY_PARAM;
+    END IF;
+ 
+    -- Check if the length of the parameters exceeds the specified size in the DDL
+    length_exceeding_column :=
+        CASE
+            WHEN LENGTH(si_name) > 20 THEN 'Name'
+            WHEN LENGTH(si_email) > 40 THEN 'Email ID'
+            WHEN LENGTH(si_street) > 20 THEN 'Street Address'
+            WHEN LENGTH(si_website) > 20 THEN 'Website'
+            WHEN LENGTH(si_unit) > 4 THEN 'Unit Number'
+            WHEN LENGTH(si_city) > 20 THEN 'City'
+            WHEN LENGTH(si_zipcode) > 6 THEN 'Zip code'
+            ELSE NULL
+        END;
+ 
+    -- If any column length exceeds it's corresponding length, raise exception --
+    IF length_exceeding_column IS NOT NULL THEN
+        CASE length_exceeding_column
+            WHEN 'Name' THEN max_length := 20;
+            WHEN 'Email ID' THEN max_length := 40;
+            WHEN 'Street Address' THEN max_length := 20;
+            WHEN 'Website' THEN max_length := 20;
+            WHEN 'Unit Number' THEN max_length := 4;
+            WHEN 'City' THEN max_length := 20;
+            ELSE max_length := 0;
+        END CASE;
+    END IF;
+ 
+    -- If any column length exceeds, raise exception --
+    IF max_length != 0 THEN
+        RAISE E_LENGTHY_PARAM;
+    END IF;
+    
+    -- Check if length of country is valid --
+    IF LENGTH(si_country) > 20 THEN
+        max_length := 20;
+        RAISE E_LENGTHY_COUNTRY;
+    END IF;
+ 
+    -- Check if contact number is 10 digits --
+    IF NOT REGEXP_LIKE(si_num, '^\d{10}$') THEN
+        RAISE E_INVALID_CONTACT;
+    END IF;
+    
+    -- Check for valid ITIN format --
+    IF NOT REGEXP_LIKE(si_itin, '^[0-9]{9}$') THEN
+        RAISE E_INVALID_ITIN;
+    END IF;
+    
+    -- Check for valid Unit Number format --
+    IF NOT REGEXP_LIKE(si_unit, '^[A-Za-z0-9]{1,4}$') THEN
+        RAISE E_INVALID_UNIT;
+    END IF;
+    
+    -- Check for valid Email ID --
+    IF NOT REGEXP_LIKE(si_email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$') THEN
+        RAISE E_INVALID_EMAIL;
+    END IF;
+    
+    -- Check if the name contains any numbers
+    IF NOT REGEXP_LIKE(si_name, '^[a-zA-Z ]+$') THEN
+        RAISE E_NAME_HAS_SPECIAL_CHARACTERS;
+    END IF;
+    
+    -- Check if the city contains any numbers
+    IF NOT REGEXP_LIKE(si_city, '^[a-zA-Z ]+$') THEN
+        RAISE E_CITY_HAS_SPECIAL_CHARACTERS;
+    END IF;
+    
+    -- Check if the country contains any numbers
+    IF NOT REGEXP_LIKE(si_country, '^[a-zA-Z ]+$') THEN
+        RAISE E_COUNTRY_HAS_SPECIAL_CHARACTERS;
+    END IF;
+    
+    -- Check if the zip code follows a specific pattern --
+    IF NOT REGEXP_LIKE(si_zipcode, '^\d{5,6}$') THEN
+        RAISE E_INVALID_ZIPCODE;
+    END IF;
+ 
+    supid_exist := GET_SUPPLIER_ID_USING_NAME(sup_name);
+    
+    IF supid_exist = -1
+    THEN
+        INSERT INTO SUPPLIERS 
+        VALUES( suppliers_seq.NEXTVAL, TRIM(sup_name), TRIM(si_email), TRIM(si_num), TRIM(si_street), TRIM(si_website), TRIM(si_itin), TRIM(si_unit), TRIM(si_city), sup_country, TRIM(si_zipcode));
+    ELSE
+        RAISE E_SUP_EXIST;
+    END IF;
+    DBMS_OUTPUT.PUT_LINE('Added Supplier successfully!');
+ 
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        -- Check which unique constraint is violated
+        
+        -- Unique constraint for email
+        IF SQLERRM LIKE '%SUPPLIERS_EMAIL_UN%' THEN
+            DBMS_OUTPUT.PUT_LINE('Supplier with email ' || si_email || ' already exists!');
+            
+        -- Unique constraint for contactnum
+        ELSIF SQLERRM LIKE '%SUPPLIERS_CONTACTNUM_UN%' THEN
+            DBMS_OUTPUT.PUT_LINE('Supplier with contact number ' || si_num || ' already exists!');
+        
+        -- Unique constraint for ITIN
+        ELSIF SQLERRM LIKE '%SUPPLIERS_ITIN_UN%' THEN
+            DBMS_OUTPUT.PUT_LINE('Supplier with itin ' || si_itin || ' already exists!');
+            
+        -- Unique constraint for supplier name
+        ELSIF SQLERRM LIKE '%SUPPLIERS_NAME_UN%' THEN
+            DBMS_OUTPUT.PUT_LINE('Supplier with name ' || sup_name || ' already exists!');
+            
+        ELSE
+            RAISE DUP_VAL_ON_INDEX;
+        END IF;
+    WHEN E_NULLEMPTY_PARAM THEN
+        DBMS_OUTPUT.PUT_LINE( null_parameter_name || ' cannot be null or empty!');
+    WHEN E_LENGTHY_PARAM THEN
+        DBMS_OUTPUT.PUT_LINE( length_exceeding_column || ' should not exceed ' || max_length || ' characters!');
+    WHEN E_LENGTHY_COUNTRY THEN
+        DBMS_OUTPUT.PUT_LINE('Country should not exceed ' || max_length || ' characters!');
+    WHEN E_INVALID_CONTACT THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Contact Number!');
+    WHEN E_INVALID_ITIN THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid ITIN!');
+    WHEN E_INVALID_UNIT THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Unit Number!');
+    WHEN E_INVALID_EMAIL THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Email ID!');
+    WHEN E_NAME_HAS_SPECIAL_CHARACTERS THEN
+        DBMS_OUTPUT.PUT_LINE('Name should not contain numbers or special characters!');
+    WHEN E_CITY_HAS_SPECIAL_CHARACTERS THEN
+        DBMS_OUTPUT.PUT_LINE('City should not contain numbers or special characters!');
+    WHEN E_COUNTRY_HAS_SPECIAL_CHARACTERS THEN
+        DBMS_OUTPUT.PUT_LINE('Country should not contain numbers or special characters!');
+    WHEN E_INVALID_ZIPCODE THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Zip code!');
+    WHEN E_SUP_EXIST THEN
+        DBMS_OUTPUT.PUT_LINE('Supplier already exists!');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Something went wrong! ' || SQLERRM);
+END ADD_SUPPLIERS;
+/
+ 
+-- Procedure for update suppliers --
+ 
+CREATE OR REPLACE PROCEDURE UPDATE_SUPPLIER(
+    si_email SUPPLIERS.EMAIL%TYPE,
+    si_name SUPPLIERS.NAME%TYPE DEFAULT NULL,
+    si_contactnum SUPPLIERS.CONTACTNUM%TYPE DEFAULT NULL,
+    si_street SUPPLIERS.ADDR_STREET%TYPE DEFAULT NULL,
+    si_website SUPPLIERS.WEBSITE%TYPE DEFAULT NULL,
+    si_itin SUPPLIERS.ITIN%TYPE DEFAULT NULL,
+    si_unit SUPPLIERS.ADDR_UNIT%TYPE DEFAULT NULL,
+    si_city SUPPLIERS.CITY%TYPE DEFAULT NULL,
+    si_country SUPPLIERS.COUNTRY%TYPE DEFAULT NULL,
+    si_zipcode SUPPLIERS.ZIP_CODE%TYPE DEFAULT NULL
+)
+AS
+    max_length NUMBER;
+    supid_exist INTEGER;
+    length_exceeding_column VARCHAR(20);
+    E_SUP_NOTAVAIL EXCEPTION;
+    E_NULLEMPTY_PARAM EXCEPTION;
+    E_LENGTHY_PARAM EXCEPTION;
+    E_INVALID_CONTACT EXCEPTION;
+    E_INVALID_ITIN EXCEPTION;
+    E_INVALID_UNIT EXCEPTION;
+    E_NAME_HAS_SPECIAL_CHARACTERS EXCEPTION;
+    E_CITY_HAS_SPECIAL_CHARACTERS EXCEPTION;
+    E_COUNTRY_HAS_SPECIAL_CHARACTERS EXCEPTION;
+    E_INVALID_ZIPCODE EXCEPTION;
+    
+BEGIN
+    -- Get the supplier id based on unique email id --
+    supid_exist := GET_SUPPLIER_ID_USING_EMAIL(TRIM(si_email));
+        
+    -- Check if the length of the parameters exceeds the specified size --
+    length_exceeding_column :=
+        CASE
+            WHEN LENGTH(si_name) > 20 THEN 'Name'
+            WHEN LENGTH(si_street) > 20 THEN 'Street Address'
+            WHEN LENGTH(si_website) > 20 THEN 'Website'
+            WHEN LENGTH(si_unit) > 4 THEN 'Unit Number'
+            WHEN LENGTH(si_city) > 20 THEN 'City'
+            WHEN LENGTH(si_country) > 20 THEN 'Country'
+            WHEN LENGTH(si_zipcode) > 6 THEN 'Zip code'
+            ELSE NULL
+        END;
+ 
+    -- If any column length exceeds it's corresponding length, raise exception --
+    IF length_exceeding_column IS NOT NULL THEN
+        CASE length_exceeding_column
+            WHEN 'Name' THEN max_length := 20;
+            WHEN 'Street Address' THEN max_length := 20;
+            WHEN 'Website' THEN max_length := 20;
+            WHEN 'Unit Number' THEN max_length := 4;
+            WHEN 'City' THEN max_length := 20;
+            WHEN 'Country' THEN max_length := 20;
+            ELSE max_length := 0;
+        END CASE;
+    END IF;
+ 
+    -- If any column length exceeds it's corresponding length, raise exception
+    IF max_length != 0 THEN
+        RAISE E_LENGTHY_PARAM;
+    END IF;
+ 
+    -- Check if contactnum is a valid 10-digit number
+    IF si_contactnum IS NOT NULL AND NOT REGEXP_LIKE(si_contactnum, '^\d{10}$') THEN
+        RAISE E_INVALID_CONTACT;
+    END IF;
+ 
+    -- Check if itin is a valid 9-digit number
+    IF si_itin IS NOT NULL AND NOT REGEXP_LIKE(si_itin, '^[0-9]{9}$') THEN
+        RAISE E_INVALID_ITIN;
+    END IF;
+ 
+    -- Check if unit is a valid 4-digit number
+    IF si_unit IS NOT NULL AND NOT REGEXP_LIKE(si_unit, '^[A-Za-z0-9]{1,4}$') THEN
+        RAISE E_INVALID_UNIT;
+    END IF;
+    
+    -- Check if the name contains any numbers
+    IF si_name IS NOT NULL AND NOT REGEXP_LIKE(si_name, '^[a-zA-Z ]+$') THEN
+        RAISE E_NAME_HAS_SPECIAL_CHARACTERS;
+    END IF;
+    
+    -- Check if the city contains any numbers
+    IF si_city IS NOT NULL AND NOT REGEXP_LIKE(si_city, '^[a-zA-Z ]+$') THEN
+        RAISE E_CITY_HAS_SPECIAL_CHARACTERS;
+    END IF;
+    
+    -- Check if the country contains any numbers
+    IF si_country IS NOT NULL AND NOT REGEXP_LIKE(si_country, '^[a-zA-Z ]+$') THEN
+        RAISE E_COUNTRY_HAS_SPECIAL_CHARACTERS;
+    END IF;
+    
+    -- Check if the zip code follows a specific pattern --
+    IF si_zipcode IS NOT NULL AND NOT REGEXP_LIKE(si_zipcode, '^\d{5,6}$') THEN
+        RAISE E_INVALID_ZIPCODE;
+    END IF;
+ 
+    UPDATE SUPPLIERS
+    SET
+        name = NVL(TRIM(si_name), name),
+        contactnum = NVL(TRIM(si_contactnum), contactnum),
+        addr_street = NVL(TRIM(si_street), addr_street),
+        website = NVL(TRIM(si_website), website),
+        itin = NVL(TRIM(si_itin), itin),
+        addr_unit = NVL(TRIM(si_unit), addr_unit),
+        city = NVL(TRIM(si_city), city),
+        country = NVL(TRIM(si_country), country),
+        zip_code = NVL(TRIM(si_zipcode), zip_code)
+    WHERE supid = supid_exist;
+    
+    COMMIT;
+ 
+    DBMS_OUTPUT.PUT_LINE('Supplier updated successfully!');
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        -- Check which unique constraint is violated
+            
+        -- Unique constraint for contactnum
+        IF SQLERRM LIKE '%SUPPLIERS_CONTACTNUM_UN%' THEN
+            DBMS_OUTPUT.PUT_LINE('Supplier with contact number ' || si_contactnum || ' already exists!');
+        
+        -- Unique constraint for ITIN
+        ELSIF SQLERRM LIKE '%SUPPLIERS_ITIN_UN%' THEN
+            DBMS_OUTPUT.PUT_LINE('Supplier with itin ' || si_itin || ' already exists!');
+            
+        -- Unique constraint for supplier name
+        ELSIF SQLERRM LIKE '%SUPPLIERS_NAME_UN%' THEN
+            DBMS_OUTPUT.PUT_LINE('Supplier with name ' || si_name || ' already exists!');
+            
+        ELSE
+            RAISE DUP_VAL_ON_INDEX;
+        END IF;
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Supplier doesn''t exist');
+    WHEN E_LENGTHY_PARAM THEN
+        DBMS_OUTPUT.PUT_LINE( length_exceeding_column || ' should not exceed ' || MAX_LENGTH || ' characters!');
+    WHEN E_INVALID_CONTACT THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Contact Number!');
+    WHEN E_INVALID_ITIN THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid ITIN!');
+    WHEN E_INVALID_UNIT THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Unit Number!');
+    WHEN E_NAME_HAS_SPECIAL_CHARACTERS THEN
+        DBMS_OUTPUT.PUT_LINE('Name should not contain numbers or special characters!');
+    WHEN E_CITY_HAS_SPECIAL_CHARACTERS THEN
+        DBMS_OUTPUT.PUT_LINE('City should not contain numbers or special characters!');
+    WHEN E_COUNTRY_HAS_SPECIAL_CHARACTERS THEN
+        DBMS_OUTPUT.PUT_LINE('Country should not contain numbers or special characters!');
+    WHEN E_INVALID_ZIPCODE THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid Zip code!');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END UPDATE_SUPPLIER;
+/
+ 
