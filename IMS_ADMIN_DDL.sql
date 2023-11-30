@@ -822,15 +822,6 @@ BEGIN
    -- Calculate the final discounted price multiplied by quantity
     v_final_price := (v_original_price - (v_original_price * v_discount / 100));
 
-    -- Get the original price of the product
-    SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
-
-    -- Get the discount value for the product
-    SELECT NVL((SELECT value FROM discounts WHERE discid = (SELECT discid FROM products WHERE prodid = v_prodid)), 0) INTO v_discount FROM dual;
-
-   -- Calculate the final discounted price multiplied by quantity
-    v_final_price := (v_original_price - (v_original_price * v_discount / 100));
-
     -- Check if the product already exists in the productorder table for the specified order
     SELECT qty INTO v_existing_order_qty
     FROM productorder
@@ -898,15 +889,6 @@ AS
 BEGIN
     -- Get the product ID based on the product name
     SELECT prodid INTO v_prodid FROM products WHERE name = p_product_name;
-
-    -- Get the original price of the product
-    SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
- 
-    -- Get the discount value for the product
-    SELECT NVL((SELECT value FROM discounts WHERE discid = products.discid), 0) INTO v_discount FROM products WHERE prodid = v_prodid;
- 
-    -- Calculate the final discounted price
-    v_final_price := v_original_price - (v_original_price * v_discount / 100);
  
     -- Get the original price of the product
     SELECT price INTO v_original_price FROM products WHERE prodid = v_prodid;
@@ -939,13 +921,6 @@ BEGIN
         RAISE_APPLICATION_ERROR(-20002, 'Requested quantity exceeds the available quantity in stock.');
     END IF;
  
-    -- Savepoint before making changes to the database
-    SAVEPOINT before_update;
- 
-    IF v_current_qty < p_new_qty THEN
-        RAISE_APPLICATION_ERROR(-20002, 'Requested quantity exceeds the available quantity in stock.');
-    END IF;
-
     -- Savepoint before making changes to the database
     SAVEPOINT before_update;
 
