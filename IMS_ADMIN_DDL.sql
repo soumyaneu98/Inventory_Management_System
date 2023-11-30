@@ -57,7 +57,7 @@ CREATE TABLE customers (
     custid      INTEGER,
     name        VARCHAR2(20) NOT NULL,
     email       VARCHAR2(40) NOT NULL,
-    contactnum  NUMBER(10) NOT NULL,
+    contactnum  NUMBER(10)  NOT NULL,
     addr_street VARCHAR2(20) NOT NULL,
     addr_unit   VARCHAR2(4) NOT NULL,
     city        VARCHAR2(20) NOT NULL,
@@ -67,12 +67,13 @@ CREATE TABLE customers (
     CONSTRAINT customers_email_un UNIQUE (email),
     CONSTRAINT customers_contactnum_un UNIQUE (contactnum)
 );
- 
+
 CREATE TABLE discounts (
     discid INTEGER NOT NULL,
     value  INTEGER NOT NULL,
     name   VARCHAR2(20) NOT NULL,
     CONSTRAINT discounts_pk PRIMARY KEY (discid)
+    
 );
  
 CREATE TABLE orders (
@@ -160,7 +161,6 @@ CREATE SEQUENCE productorder_seq start with 7000;
 CREATE SEQUENCE productsupply_seq start with 8000;
 
 ---  Customers Product order View
- 
 CREATE OR REPLACE VIEW customer_order_view AS
 SELECT
     o.orderid AS Orderld,
@@ -188,9 +188,9 @@ JOIN
     categories c ON p.ctgryid = c.ctgryid
 LEFT JOIN
     discounts d ON p.discid = d.discid;
-
+ 
 -- logistic Admin Order Status
-CREATE or REPLACE VIEW logistic_admin_order_status AS
+CREATE OR REPLACE VIEW logistic_admin_order_status AS
 SELECT
     o.orderid,
     o.order_date,  
@@ -201,6 +201,11 @@ SELECT
     c.contactnum AS customer_contact,
     c.city AS customer_city,
     c.country AS customer_country,
+    c.name AS CustomerName,
+    c.email AS CustomerEmail,
+    c.contactnum AS CustomerContact,
+    c.city AS CustomerCity,
+    c.country AS CustomerCountry,
      p.name AS ProductName
 FROM
     orders o
@@ -210,10 +215,9 @@ FROM
     productorder po ON o.orderid = po.orderid
     JOIN
     products p ON po.prodid = p.prodid;
- 
--- stock report
 
-CREATE or replace VIEW stock_report AS
+-- stock report
+CREATE OR REPLACE VIEW stock_report AS
 SELECT
     c.name AS CategoryName,
     p.name AS ProductName,
@@ -224,9 +228,8 @@ FROM
     products p
 JOIN
     categories c ON p.ctgryid = c.ctgryid;
-
+ 
 --Sales Report
-
 CREATE  OR REPLACE VIEW sales_report AS
 SELECT
     o.orderid,
@@ -247,7 +250,6 @@ LEFT JOIN
     discounts d ON p.discid = d.discid;
 
 -- Customer Product View
- 
 CREATE OR REPLACE VIEW customer_product_view AS
 SELECT
     p.prodid,
@@ -266,7 +268,20 @@ JOIN
     categories c ON p.ctgryid = c.ctgryid
 Left JOIN
     discounts d ON p.discid = d.discid;
-    
+
+--Function for checking if customer exists--
+CREATE OR REPLACE FUNCTION GET_CUSTOMER_ID(PI_EMAIL VARCHAR)
+RETURN INTEGER AS 
+V_ID INTEGER:=-1;
+BEGIN
+   SELECT CUSTID INTO V_ID FROM CUSTOMERS WHERE LOWER(EMAIL) = LOWER(PI_EMAIL);
+   RETURN V_ID;
+EXCEPTION
+   WHEN NO_DATA_FOUND THEN
+      RETURN V_ID;
+   END;
+/
+
 --return product id if exist, else returns -1
 CREATE OR REPLACE FUNCTION GET_PRODUCT_ID(PI_PNAME VARCHAR) RETURN INTEGER AS 
 V_ID INTEGER:=-1;
@@ -314,7 +329,7 @@ WHEN NO_DATA_FOUND THEN
 END;
 /
 
--- returns discound id if a row exists with (discount) name, else returns -1
+-- returns discount id if a row exists with (discount) name, else returns -1
 CREATE OR REPLACE FUNCTION GET_DISCOUNT_ID_USING_NAME(PI_DISC_NAME VARCHAR) RETURN INTEGER AS 
 V_ID INTEGER:=-1;
 BEGIN
@@ -326,7 +341,7 @@ WHEN NO_DATA_FOUND THEN
 END;
 /
 
--- returns discound id if a row exists with (discount) value, else returns -1
+-- returns discount id if a row exists with (discount) value, else returns -1
 CREATE OR REPLACE FUNCTION GET_DISCOUNT_ID_USING_VALUE(PI_VALUE INTEGER) RETURN INTEGER AS 
 V_ID INTEGER:=-1;
 BEGIN
@@ -1351,3 +1366,295 @@ EXCEPTION
 END UPDATE_SUPPLIER;
 /
  
+--Procedure for adding customers--
+SET SERVEROUTPUT ON;
+CREATE OR REPLACE PROCEDURE ADD_CUSTOMERS
+   (PI_NAME VARCHAR2,
+    PI_EMAIL VARCHAR2,
+    PI_CONTACTNUM NUMBER,
+    PI_ADDR_STREET VARCHAR2,
+    PI_ADDR_UNIT   VARCHAR2,
+    PI_CITY        VARCHAR2,
+    PI_COUNTRY    VARCHAR2 ,
+    PI_ZIP_CODE   VARCHAR2)
+AS
+ V_CUST_EXISTS INTEGER;--To check whether cust id exists
+ V_NULL_COLUMNNAME VARCHAR2(30);-- To check null column
+ V_COLUMN_NAME VARCHAR2(30);--To check column for length
+ V_COLUMN_LENGTH NUMBER; --To check allowed length for column
+ V_COLUMN_TYPE VARCHAR2(30);--To check column for city or coutry type
+ CUST_NAME VARCHAR2(50); --To get customer name
+ E_CUST_EXISTS EXCEPTION;
+ E_NULL_COLUMN EXCEPTION;
+ E_LENGTH EXCEPTION;
+ E_ZIPCODE_LENGTH EXCEPTION;
+ E_TYPE_NAME_CITY_COUNTRY EXCEPTION;
+ E_TYPE_ZIP_CODE EXCEPTION;
+ E_TYPE_EMAIL EXCEPTION;
+ V_COUNTRY VARCHAR(50);
+ 
+BEGIN 
+    -- Converting customer name to camel case --
+    CUST_NAME := INITCAP(TRIM(PI_NAME));
+    --Assigning country based on default
+    V_COUNTRY:=COALESCE(TRIM(PI_COUNTRY), 'USA');
+    
+    --Determine first column that is null--
+    V_NULL_COLUMNNAME:=
+    CASE
+          WHEN CUST_NAME IS NULL THEN 'Customer name'
+          WHEN PI_EMAIL IS NULL THEN 'Customer email'
+          WHEN PI_CONTACTNUM IS NULL THEN 'Customer contact'
+          WHEN PI_ADDR_STREET IS NULL THEN 'Customer address street'
+          WHEN PI_ADDR_UNIT IS NULL THEN 'Customer address unit'
+          WHEN PI_CITY IS NULL THEN 'Customer city'
+         -- WHEN PI_COUNTRY IS NULL THEN 'Customer country'
+          WHEN PI_ZIP_CODE IS NULL THEN 'Customer zipcode'
+          ELSE NULL
+    END;
+   
+    IF V_NULL_COLUMNNAME IS NOT NULL THEN
+    RAISE  E_NULL_COLUMN;
+    END IF;
+    
+   -- Check the column and length  using CASE statement
+    V_COLUMN_NAME :=
+        CASE
+            WHEN LENGTH(CUST_NAME) > 20 THEN 'NAME'
+            WHEN LENGTH(PI_EMAIL) > 40 THEN 'EMAIL'
+            WHEN LENGTH(PI_CONTACTNUM) <> 10 THEN 'CONTACTNUM'
+            WHEN LENGTH(PI_ADDR_STREET) > 20 THEN 'ADDR_STREET'
+            WHEN LENGTH(PI_ADDR_UNIT) > 4 THEN 'ADDR_UNIT'
+            WHEN LENGTH(PI_CITY) > 20 THEN 'CITY'
+            WHEN LENGTH(PI_COUNTRY) > 20 THEN 'COUNTRY'
+            ELSE NULL
+        END;
+
+    V_COLUMN_LENGTH :=
+        CASE V_COLUMN_NAME
+            WHEN 'NAME' THEN 20
+            WHEN 'EMAIL' THEN 40
+            WHEN 'CONTACTNUM' THEN 10
+            WHEN 'ADDR_STREET' THEN 20
+            WHEN 'ADDR_UNIT' THEN 4
+            WHEN 'CITY' THEN 20
+            WHEN 'COUNTRY' THEN 20
+            ELSE NULL
+        END;
+
+    IF V_COLUMN_NAME IS NOT NULL THEN
+            RAISE E_LENGTH;
+    END IF;
+    
+     IF LENGTH(PI_ZIP_CODE) NOT IN (5, 6) THEN
+           RAISE E_ZIPCODE_LENGTH;
+     END IF;   
+        
+  -- Check for type  in--
+  
+    --ZIP_CODE
+    IF NOT REGEXP_LIKE(PI_ZIP_CODE, '^\d+$') THEN
+        RAISE E_TYPE_ZIP_CODE;
+    END IF;
+    
+    --NAME
+    IF NOT REGEXP_LIKE(CUST_NAME, '^[a-zA-Z ]+$') THEN
+        V_COLUMN_TYPE := 'CUSTOMER NAME';
+        RAISE E_TYPE_NAME_CITY_COUNTRY;
+    END IF;
+    
+    --CITY
+    IF NOT REGEXP_LIKE(PI_CITY, '^[a-zA-Z ]+$') THEN
+        V_COLUMN_TYPE := 'CITY';
+        RAISE E_TYPE_NAME_CITY_COUNTRY;
+    END IF;
+    
+    --COUNTRY
+    IF NOT REGEXP_LIKE(PI_COUNTRY, '^[a-zA-Z ]+$') THEN
+        V_COLUMN_TYPE := 'COUNTRY';
+        RAISE E_TYPE_NAME_CITY_COUNTRY;
+    END IF;
+    
+     -- EMAIL
+    IF NOT REGEXP_LIKE(PI_EMAIL, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$') THEN
+        RAISE E_TYPE_EMAIL;
+    END IF;
+    
+
+ 
+    --Checking whether customer exists
+    V_CUST_EXISTS:=GET_CUSTOMER_ID(PI_EMAIL);
+    
+    --Insertion
+      IF V_CUST_EXISTS=-1 THEN
+    
+        INSERT INTO CUSTOMERS(custid,name ,email,contactnum ,addr_street,addr_unit ,city ,country,zip_code)
+        VALUES(CUSTOMERS_SEQ.NEXTVAL,CUST_NAME,TRIM(PI_EMAIL), TRIM(PI_CONTACTNUM),TRIM(PI_ADDR_STREET),TRIM(PI_ADDR_UNIT),TRIM( PI_CITY) ,V_COUNTRY ,TRIM(PI_ZIP_CODE));
+        COMMIT;
+        
+      ELSE
+          RAISE E_CUST_EXISTS;
+      END IF;
+      
+EXCEPTION
+   WHEN E_NULL_COLUMN THEN
+      DBMS_OUTPUT.PUT_LINE(V_NULL_COLUMNNAME||' cannot be null');
+   WHEN E_LENGTH THEN
+      IF(V_COLUMN_NAME='CONTACTNUM') THEN
+         DBMS_OUTPUT.PUT_LINE('Contact number should be of exactly 10 digits ' );
+      ELSE
+         DBMS_OUTPUT.PUT_LINE('Length of '||V_COLUMN_NAME||' cannot exceed '||V_COLUMN_LENGTH);
+      END IF;
+   WHEN E_ZIPCODE_LENGTH THEN
+         DBMS_OUTPUT.PUT_LINE('Zipcode should be of exactly 5 or 6 digits ' );
+   WHEN E_TYPE_ZIP_CODE THEN
+      DBMS_OUTPUT.PUT_LINE('Zipcode should only contain numbers');
+   WHEN E_TYPE_NAME_CITY_COUNTRY THEN
+      DBMS_OUTPUT.PUT_LINE(V_COLUMN_TYPE ||' should not contain any numbers or special characters');
+   WHEN E_TYPE_EMAIL THEN
+      DBMS_OUTPUT.PUT_LINE('Please enter valid email format');
+   WHEN E_CUST_EXISTS THEN
+      DBMS_OUTPUT.PUT_LINE('Customer already exists');
+   WHEN DUP_VAL_ON_INDEX THEN
+   
+          IF(INSTR(SQLERRM,'CUSTOMERS_EMAIL_UN')>0) THEN
+                    DBMS_OUTPUT.PUT_LINE('Customer email already exists');
+          ELSIF (INSTR(SQLERRM,'CUSTOMERS_CONTACTNUM_UN')>0) THEN
+                    DBMS_OUTPUT.PUT_LINE('Customer contact number already exists');
+          END IF;
+  WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('Error '||SQLERRM);
+
+END ADD_CUSTOMERS;
+/  
+--Procedure for updating customer--
+CREATE OR REPLACE PROCEDURE UPDATE_CUSTOMER(
+    PI_Email IN VARCHAR2,
+    PI_Name IN VARCHAR2 DEFAULT NULL,
+    PI_ContactNum IN NUMBER DEFAULT NULL,
+    PI_Addr_Street IN VARCHAR2 DEFAULT NULL,
+    PI_Addr_Unit IN VARCHAR2 DEFAULT NULL,
+    PI_City IN VARCHAR2 DEFAULT NULL,
+    PI_Country IN VARCHAR2 DEFAULT NULL,
+    PI_Zip_Code IN VARCHAR2 DEFAULT NULL
+)
+AS
+ V_CUST_EXISTS NUMBER;--To check whether cust id exists
+ V_COLUMN_NAME VARCHAR2(30);--To check column for length
+ V_COLUMN_LENGTH NUMBER; --To check allowed length for column
+ V_COLUMN_TYPE VARCHAR2(30);--To check column for city or coutry type
+ CUST_NAME VARCHAR2(50); --To get customer name
+ E_CUST_EXISTS EXCEPTION;
+ E_LENGTH EXCEPTION;
+ E_ZIPCODE_LENGTH EXCEPTION;
+ E_TYPE_NAME_CITY_COUNTRY EXCEPTION;
+ E_TYPE_ZIP_CODE EXCEPTION;
+ E_TYPE_EMAIL EXCEPTION;
+BEGIN
+   
+     V_CUST_EXISTS:=GET_CUSTOMER_ID(TRIM(PI_Email));
+
+    -- Check the column and length using CASE statement
+    V_COLUMN_NAME :=
+        CASE
+            WHEN PI_Name IS NOT NULL AND LENGTH(PI_Name) > 20 THEN 'NAME'
+            WHEN PI_Email IS NOT NULL AND LENGTH(PI_Email) > 40 THEN 'EMAIL'
+            WHEN PI_ContactNum IS NOT NULL AND LENGTH(PI_ContactNum) <> 10 THEN 'CONTACTNUM'
+            WHEN PI_Addr_Street IS NOT NULL AND LENGTH(PI_Addr_Street) > 20 THEN 'ADDR_STREET'
+            WHEN PI_Addr_Unit IS NOT NULL AND LENGTH(PI_Addr_Unit) > 4 THEN 'ADDR_UNIT'
+            WHEN PI_City IS NOT NULL AND LENGTH(PI_City) > 20 THEN 'CITY'
+            WHEN PI_Country IS NOT NULL AND LENGTH(PI_Country) > 20 THEN 'COUNTRY'
+            ELSE NULL
+        END;
+
+    V_COLUMN_LENGTH :=
+        CASE V_COLUMN_NAME
+            WHEN 'NAME' THEN 20
+            WHEN 'EMAIL' THEN 40
+            WHEN 'CONTACTNUM' THEN 10
+            WHEN 'ADDR_STREET' THEN 20
+            WHEN 'ADDR_UNIT' THEN 4
+            WHEN 'CITY' THEN 20
+            WHEN 'COUNTRY' THEN 20
+            WHEN 'ZIP_CODE' THEN 6
+            ELSE NULL
+        END;
+
+    IF V_COLUMN_NAME IS NOT NULL THEN
+        RAISE E_LENGTH;
+    END IF;
+    --Length of zipcode
+    IF LENGTH(PI_ZIP_CODE) NOT IN (5, 6) THEN
+           RAISE E_ZIPCODE_LENGTH;
+     END IF;  
+    
+    -- Check for type
+    -- ZIP_CODE
+    IF PI_Zip_Code IS NOT NULL AND NOT REGEXP_LIKE(PI_Zip_Code, '^\d+$') THEN
+        RAISE E_TYPE_ZIP_CODE;
+    END IF;
+
+    -- NAME
+    IF PI_Name IS NOT NULL AND NOT REGEXP_LIKE(PI_Name, '^[a-zA-Z ]+$') THEN
+        V_COLUMN_TYPE := 'CUSTOMER NAME';
+        RAISE E_TYPE_NAME_CITY_COUNTRY;
+    END IF;
+
+    -- CITY
+    IF PI_City IS NOT NULL AND NOT REGEXP_LIKE(PI_CITY, '^[a-zA-Z ]+$') THEN
+        V_COLUMN_TYPE := 'CITY';
+        RAISE E_TYPE_NAME_CITY_COUNTRY;
+    END IF;
+
+    -- COUNTRY
+    IF PI_Country IS NOT NULL AND NOT REGEXP_LIKE(PI_COUNTRY, '^[a-zA-Z ]+$') THEN
+        V_COLUMN_TYPE := 'COUNTRY';
+        RAISE E_TYPE_NAME_CITY_COUNTRY;
+    END IF;
+    
+     -- EMAIL
+    IF NOT REGEXP_LIKE(PI_EMAIL, '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$') THEN
+        RAISE E_TYPE_EMAIL;
+    END IF;
+    
+   
+    UPDATE CUSTOMERS
+    SET 
+        name = COALESCE(TRIM(PI_Name), name),
+        contactnum = COALESCE(PI_ContactNum, contactnum),
+        addr_street = COALESCE(TRIM(PI_Addr_Street), addr_street),
+        addr_unit = COALESCE(TRIM(PI_Addr_Unit), addr_unit),
+        city = COALESCE(TRIM(PI_City), city),
+        country = COALESCE(TRIM(PI_Country), country),
+        zip_code = COALESCE(TRIM(PI_Zip_Code), zip_code)
+    WHERE V_CUST_EXISTS = custid;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Customer updated successfully!');
+    
+EXCEPTION
+   WHEN E_LENGTH THEN
+      IF(V_COLUMN_NAME='CONTACTNUM') THEN
+         DBMS_OUTPUT.PUT_LINE('Contact number should be of exactly 10 digits ' );
+      ELSE
+         DBMS_OUTPUT.PUT_LINE('Length of '||V_COLUMN_NAME||' cannot exceed '||V_COLUMN_LENGTH);
+      END IF;
+   WHEN E_ZIPCODE_LENGTH THEN
+         DBMS_OUTPUT.PUT_LINE('Zipcode should be of exactly 5 or 6 digits ' );
+   WHEN E_TYPE_ZIP_CODE THEN
+      DBMS_OUTPUT.PUT_LINE('Zipcode should only contain numbers');
+   WHEN E_TYPE_NAME_CITY_COUNTRY THEN
+      DBMS_OUTPUT.PUT_LINE(V_COLUMN_TYPE ||' should not contain any numbers or special characters');
+   WHEN E_TYPE_EMAIL THEN
+      DBMS_OUTPUT.PUT_LINE('Please enter valid email format');
+   WHEN NO_DATA_FOUND THEN
+      DBMS_OUTPUT.PUT_LINE('No customer found with Email ' || PI_Email);
+   WHEN DUP_VAL_ON_INDEX THEN
+         IF (INSTR(SQLERRM,'CUSTOMERS_CONTACTNUM_UN')>0) THEN
+                    DBMS_OUTPUT.PUT_LINE('Customer contact number already exists');
+          END IF;
+   WHEN OTHERS THEN
+      DBMS_OUTPUT.PUT_LINE('Error '||SQLERRM);
+ 
+END UPDATE_CUSTOMER;
+/
+
