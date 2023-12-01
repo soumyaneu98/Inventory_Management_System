@@ -1626,3 +1626,107 @@ EXCEPTION
 END UPDATE_CUSTOMER;
 /
 
+-- proc to update qty of the current inv (current inv = current iv + reorder qty)
+CREATE OR REPLACE PROCEDURE UPDATE_INV_QTY(PI_PID INTEGER) AS
+BEGIN
+UPDATE PRODUCTS SET QTYINSTOCK = QTYINSTOCK + REORDERQTY WHERE PRODID = PI_PID;
+IF SQL%ROWCOUNT > 0 THEN
+    DBMS_OUTPUT.PUT_LINE('RESTOCKED SUCCESSFULLY');
+    COMMIT;
+ELSE
+    DBMS_OUTPUT.PUT_LINE('PRODUCT NOT FOUND');
+END IF;
+EXCEPTION
+WHEN OTHERS THEN
+   DBMS_OUTPUT.PUT_LINE('SOMETHIGN WENT WRONG, CONTACT ADMIN WITH SQL CODE ' || SQLCODE); 
+END;
+/
+
+-- places an order only if there are no existing orders with 'N' flag into the product supply table 
+CREATE OR REPLACE PROCEDURE ADD_PRODUCT_SUPPLY(
+    psi_prodid IN INTEGER
+)
+AS
+    v_price INT;
+    V_DATA_COUNT INTEGER;
+    E_INVALID_STATUS EXCEPTION;
+BEGIN
+    SELECT price INTO v_price
+    FROM products
+    WHERE prodid = psi_prodid;
+    -- Insert data into ProductSupply table
+    SELECT COUNT(ProductSupply_Id) INTO V_DATA_COUNT  FROM PRODUCTSUPPLY WHERE PRODID = psi_prodid AND STATUS = 'N';
+    IF(V_DATA_COUNT=0) THEN
+        INSERT INTO ProductSupply (ProductSupply_Id, ProdId,  Price)
+        VALUES (productsupply_seq.NEXTVAL, psi_prodid, 0.6*v_price);
+        DBMS_OUTPUT.PUT_LINE('Product Supply added successfully!');
+        COMMIT;
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('PREVIOUS ORDER EXIST WITH SAME PRODUCT, CONTACT SUPPLIER TO FULFILL THE REQUEST ');
+    END IF;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('No product found with the given prodid !');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Something went wrong! ' || SQLERRM);
+END ADD_PRODUCT_SUPPLY;
+/
+ 
+-- for each product, it says how much does the supplier needs to refill back to the inventory
+create or replace view inv_order_requests as 
+(
+select p.prodid, p.supid, p.name, reorderqty*info.cnt pending_order_req  from products  p join 
+(select prodid, count(productsupply_id) cnt from productsupply  where status = 'N' group by prodid) info
+on p.prodid = info.prodid
+);
+
+CREATE OR REPLACE PROCEDURE GET_SUPPLIER_ORDER_REQ_USING_PRODNAME(PI_SUPNAME VARCHAR, PI_NAME VARCHAR) AS
+V_PID PRODUCTS.PRODID%TYPE;
+V_SID SUPPLIERS.SUPID%TYPE;
+V_SUPNAME VARCHAR(100);
+V_NAME PRODUCTS.NAME%TYPE;
+V_ACCESS VARCHAR(20) := 'ACCESS DENIED';
+V_ERRM VARCHAR(100);
+CUSTOM_EXCEPTION EXCEPTION;
+BEGIN
+V_NAME := TRIM(PI_NAME);
+V_SUPNAME := TRIM(PI_SUPNAME);
+IF(V_NAME IS NULL OR LENGTH(V_NAME)=0) THEN
+    V_ERRM := 'PRODUCT NAME CANNOT BE NULL OR LENGTH 0';
+    RAISE CUSTOM_EXCEPTION;
+ELSIF LENGTH(V_NAME)>40 THEN
+    V_ERRM := 'PRODUCT NAME CANNOT BE MORE THAN 40 CHARACTERS';
+    RAISE CUSTOM_EXCEPTION;
+ELSIF(V_SUPNAME IS NULL OR LENGTH(V_SUPNAME)=0) THEN
+    V_ERRM := 'SUPPPLIER NAME CANNOT BE NULL OR LENGTH 0';
+    RAISE CUSTOM_EXCEPTION;
+ELSIF LENGTH(V_SUPNAME)> 20 THEN
+    V_ERRM := 'SUPPLIER NAME CANNOT BE MORE THAN 20 CHARACTERS';
+    RAISE CUSTOM_EXCEPTION;
+END IF;
+V_PID :=  GET_PRODUCT_ID(V_NAME);
+V_SID := GET_SUPPLIER_ID_USING_NAME(V_SUPNAME);
+IF V_PID=-1 THEN
+   V_ERRM := 'PRODUCT NOT FOUND' ;
+   RAISE CUSTOM_EXCEPTION;  
+END IF;
+IF V_SID=-1 THEN
+   V_ERRM := 'SUPPLIER NOT FOUND' ;
+   RAISE CUSTOM_EXCEPTION;  
+END IF;
+SELECT 'GRANTED' INTO V_ACCESS FROM PRODUCTS WHERE SUPID = V_SID AND PRODID = V_PID; 
+for i in(
+select * from inv_order_requests WHERE PRODID = V_PID  AND SUPID = V_SID
+)
+loop
+DBMS_OUTPUT.PUT_LINE('PRODUCT ID : ' || i.prodid || ' , PRODUCT NAME : '|| i.name || ' , PENDING ORDER QTY : ' || i.pending_order_req);
+end loop;
+EXCEPTION
+WHEN NO_DATA_FOUND THEN
+    DBMS_OUTPUT.PUT_LINE(V_ACCESS);
+WHEN CUSTOM_EXCEPTION THEN
+    DBMS_OUTPUT.PUT_LINE(V_ERRM);
+END;
+/
+
+
