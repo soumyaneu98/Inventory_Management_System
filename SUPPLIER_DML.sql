@@ -1,21 +1,11 @@
 ALTER SESSION SET CURRENT_SCHEMA = IMS_ADMIN;
-DELETE FROM SUPPLIERS;
-
-INSERT INTO suppliers (supid, name, email, contactnum, addr_street, website, itin, addr_unit, city, country, zip_code) VALUES
-(1, 'Supplier1', 'supp1@example.com', 1234567890, '789 Elm St', 'www.supplier1.com', 'ITIN123', 101, 'City1', 'Country1', '54321');
-
-INSERT INTO suppliers (supid, name, email, contactnum, addr_street, website, itin, addr_unit, city, country, zip_code) VALUES
-(2, 'Supplier2', 'supp2@example.com', 9876543210, '321 Pine St', 'www.supplier2.com', 'ITIN456', 102, 'City2', 'Country2', '98765');
-
-INSERT INTO suppliers (supid, name, email, contactnum, addr_street, website, itin, addr_unit, city, country, zip_code) VALUES
-(3, 'Supplier3', 'supp3@example.com', 5554443333, '456 Oak St', 'www.supplier3.com', 'ITIN789', 103, 'City3', 'Country3', '11223');
-
-INSERT INTO suppliers (supid, name, email, contactnum, addr_street, website, itin, addr_unit, city, country, zip_code) VALUES
-(4, 'Supplier4', 'supp4@example.com', 1112223333, '654 Birch St', 'www.supplier4.com', 'ITIN987', 104, 'City4', 'Country4', '33445');
-
-INSERT INTO suppliers (supid, name, email, contactnum, addr_street, website, itin, addr_unit, city, country, zip_code) VALUES
-(5, 'Supplier5', 'supp5@example.com', 6665554444, '789 Cedar St', 'www.supplier5.com', 'ITIN654', 105, 'City5', 'Country5', '55667');
-
+SET SERVEROUTPUT ON;
+BEGIN
+    ADD_SUPPLIERS('Apple Inc', 'apple@example.com', 1234567890, '1 Infinite Loop', 'www.apple.com', 123456789, '1101', 'Cupertino', 'USA', '95014');
+    ADD_SUPPLIERS('Samsung Electronics', 'samsung@example.com', 9876543210, 'Samsung-ro 129', 'www.samsung.com', 987654321, '4102', 'Suwon', 'South Korea', '16678');
+    ADD_SUPPLIERS('OnePlus Technology', 'oneplus@example.com', 5554443333, '20th Fl, Jingan', 'www.oneplus.com', 333333333, '9103', 'Delhi', 'India', '400040');
+    ADD_SUPPLIERS('Lenovo Group Ltd', 'lenovo@example.com', 1112223333, 'Building 24', 'www.lenovo.com', 444444440, '7104', 'Mumbai', 'India', '401203');
+    ADD_SUPPLIERS('Xiaomi Corporation', 'xiaomi@example.com', 6665554444, 'Building 3', 'www.xiaomi.com', 555555559, '9105', 'Beijing', 'China', '100102');
+END;
+/
 COMMIT;
-
-SELECT * FROM SUPPLIERS;
